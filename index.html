@@ -1,0 +1,920 @@
+<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Torneio dos Nomes</title>
+<meta name="description" content="Torneio de 32 nomes decidido pelo Rui e pela Bia, em tempo real.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Grenze+Gotisch:wght@500;700;900&family=Alegreya+Sans:wght@400;500;700;800&family=Alegreya+Sans+SC:wght@500;700&display=swap">
+<style>
+/* Layout: arena nocturna — chave em duas alas (16 + 16) a convergir para o trono do campeão ao centro; cada nome é uma carta de pergaminho cuja tinta ganha vermelho (Rui) ou azul (Bia) a cada vitória. */
+:root{
+  --night:#12111c;        /* fundo da arena */
+  --stone:#1d1b2b;        /* painéis */
+  --stone-2:#272438;
+  --line:#3d3955;         /* traços da chave */
+  --parch:#ece3cf;        /* texto claro */
+  --card:#efe6d2;         /* cartas dos nomes */
+  --card-edge:#c9b994;
+  --ink:#000;             /* tinta inicial dos nomes */
+  --muted:#9c94b3;
+  --gold:#d9a93f;
+  --gold-2:#f3d27a;
+  --rui:#d0313f;          /* Rui */
+  --rui-soft:#ef7d8c;
+  --bia:#2f72c8;          /* Bia */
+  --bia-soft:#83b4ec;
+  --f-display:"Grenze Gotisch", "UnifrakturCook", Georgia, serif;
+  --f-body:"Alegreya Sans", "Segoe UI", system-ui, sans-serif;
+  --f-sc:"Alegreya Sans SC", "Alegreya Sans", system-ui, sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{min-height:100%}
+body{
+  background:
+    radial-gradient(1200px 520px at 50% -10%, #2a2340 0%, transparent 60%),
+    repeating-linear-gradient(90deg, rgba(255,255,255,.012) 0 2px, transparent 2px 64px),
+    var(--night);
+  color:var(--parch);font-family:var(--f-body);font-size:16px;line-height:1.45;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));
+  padding-right:max(16px, env(safe-area-inset-right, 0px));
+  padding-block:20px 48px;
+}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid var(--gold-2);outline-offset:2px}
+button:disabled{cursor:not-allowed;opacity:.45}
+.wrap{max-width:1320px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+
+header.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 24px;border-bottom:1px solid var(--line);padding-bottom:14px}
+.brand h1{font-family:var(--f-display);font-weight:900;font-size:clamp(34px,6vw,58px);line-height:.95;margin:0;letter-spacing:.01em;text-wrap:balance}
+.brand h1 span{color:var(--gold)}
+.brand p{margin:6px 0 0;color:var(--muted);font-family:var(--f-sc);letter-spacing:.08em;font-size:14px}
+.status{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.chip{font-family:var(--f-sc);font-size:13px;letter-spacing:.06em;padding:5px 11px;border:1px solid var(--line);border-radius:3px;background:var(--stone);color:var(--muted);white-space:nowrap}
+.chip b{color:var(--parch);font-weight:700}
+.chip.turn.A{border-color:var(--rui);color:var(--rui-soft)}
+.chip.turn.B{border-color:var(--bia);color:var(--bia-soft)}
+.chip.warn{border-color:#7a5b20;color:var(--gold-2)}
+.cA{color:var(--rui-soft)}.cB{color:var(--bia-soft)}
+
+.panel{background:linear-gradient(180deg,var(--stone),#181625);border:1px solid var(--line);border-radius:4px;padding:18px;display:flex;flex-direction:column;gap:14px}
+.panel h2{font-family:var(--f-display);font-weight:700;font-size:28px;margin:0;line-height:1}
+.panel .lede{margin:0;color:var(--muted);max-width:65ch}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+input[type=text]{flex:1 1 220px;min-width:0;background:var(--night);border:1px solid var(--line);color:var(--parch);border-radius:3px;padding:10px 12px;font:inherit;font-size:17px}
+.btn{border:1px solid var(--line);background:var(--stone-2);padding:10px 16px;border-radius:3px;font-weight:700;letter-spacing:.02em;transition:transform .12s, background .12s, border-color .12s}
+.btn:hover:not(:disabled){border-color:var(--gold);transform:translateY(-1px)}
+.btn.gold{background:linear-gradient(180deg,var(--gold-2),var(--gold));color:#2a1a04;border-color:#8d6a1f}
+.btn.ghost{background:transparent}
+.btn.big{font-family:var(--f-display);font-size:26px;font-weight:900;padding:10px 28px;letter-spacing:.03em}
+.counter{font-family:var(--f-sc);font-size:15px;letter-spacing:.05em;color:var(--muted)}
+.counter b{font-family:var(--f-display);font-size:30px;color:var(--gold);font-weight:900;vertical-align:-3px;margin-right:4px}
+.meter{height:6px;background:var(--night);border:1px solid var(--line);border-radius:3px;overflow:hidden}
+.meter i{display:block;height:100%;background:linear-gradient(90deg,var(--rui),var(--gold),var(--bia));transition:width .3s}
+.names{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:6px}
+.names li{display:flex;align-items:center;gap:8px;background:var(--stone-2);border:1px solid var(--line);border-radius:3px;padding:5px 6px 5px 10px;min-width:0}
+.names li .n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.names li .num{font-family:var(--f-sc);color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums;width:18px}
+.names li button{border:0;background:transparent;color:var(--muted);padding:2px 6px;font-size:16px;line-height:1}
+.names li button:hover{color:#ff8f9c}
+.msg{min-height:1.2em;margin:0;color:#ff9aa6;font-size:14px}
+.msg.ok{color:var(--gold-2)}
+.small{font-size:14px;color:var(--muted)}
+.confirm{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px;border:1px dashed #7a3040;border-radius:3px;background:rgba(208,49,63,.08)}
+
+/* Juízes */
+.seats{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.seat{border:1px solid var(--line);border-radius:4px;padding:16px;display:flex;flex-direction:column;gap:10px;background:var(--night);position:relative;overflow:hidden}
+.seat::before{content:"";position:absolute;inset:0 auto 0 0;width:6px;background:var(--c)}
+.seat.A{--c:var(--rui)}.seat.B{--c:var(--bia)}
+.seat h3{margin:0;font-family:var(--f-sc);letter-spacing:.08em;font-size:14px;color:var(--muted)}
+.seat .who{font-family:var(--f-display);font-size:44px;font-weight:900;line-height:1;color:var(--c)}
+.seat .tag{font-size:14px;color:var(--gold-2)}
+label.toggle{display:flex;gap:10px;align-items:center;cursor:pointer;color:var(--muted);font-size:15px}
+label.toggle input{width:18px;height:18px;accent-color:var(--gold)}
+
+/* Chave */
+.bracket-shell{overflow-x:auto;padding-bottom:6px;-webkit-overflow-scrolling:touch}
+.bracket{display:grid;grid-template-columns:repeat(4,minmax(118px,1fr)) minmax(150px,1.2fr) repeat(4,minmax(118px,1fr));column-gap:22px;min-width:1180px;position:relative;margin-top:30px;padding-bottom:4px}
+.col{display:flex;flex-direction:column;justify-content:space-around;gap:8px;position:relative}
+.col-h{position:absolute;top:-26px;left:0;right:0;text-align:center;font-family:var(--f-sc);font-size:11.5px;letter-spacing:.09em;color:var(--muted);white-space:nowrap}
+.pair{display:flex;flex-direction:column;justify-content:space-around;gap:8px;flex:1;position:relative}
+.pair::after{content:"";position:absolute;top:25%;bottom:25%;width:11px;border:1px solid var(--line);border-left:0;right:-12px;border-radius:0 3px 3px 0}
+.R .pair::after{right:auto;left:-12px;border:1px solid var(--line);border-right:0;border-radius:3px 0 0 3px}
+.m{position:relative;display:flex;flex-direction:column;background:var(--stone);border:1px solid var(--line);border-radius:3px;transition:box-shadow .25s,border-color .25s}
+.m::before{content:"";position:absolute;top:50%;width:11px;border-top:1px solid var(--line);left:-12px}
+.col.r0 .m::before{display:none}
+.R .m::before{left:auto;right:-12px}
+.m.cur{border-color:var(--gold);box-shadow:0 0 0 2px rgba(217,169,63,.35),0 0 24px rgba(217,169,63,.25)}
+.s{display:flex;align-items:center;gap:6px;height:27px;padding:0 8px;font-size:14px;min-width:0}
+.s+.s{border-top:1px solid #2f2c44}
+.s .t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.s.empty .t{color:#5a5575}
+.s.sealed .t{color:#6f6890;font-family:var(--f-sc);font-size:12px;letter-spacing:.12em}
+.seal{width:13px;height:15px;flex:none;background:#3b3657;clip-path:polygon(0 0,100% 0,100% 62%,50% 100%,0 62%)}
+/* carta de pergaminho com o nome à tinta */
+.s.named{color:#f6eedc;font-weight:700;background-image:linear-gradient(180deg,rgba(255,255,255,.1),rgba(0,0,0,.18))}
+.s.named + .s.named{border-top-color:rgba(255,255,255,.14)}
+.s.win{box-shadow:inset 3px 0 0 var(--gold),inset 0 0 0 1px var(--gold)}
+.s.win::after{content:"";width:8px;height:8px;flex:none;border-radius:50%;background:var(--gold)}
+.s.lose{opacity:.42}
+.s.lose .t{text-decoration:line-through}
+.s.fresh{animation:unseal .7s ease-out}
+@keyframes unseal{from{filter:brightness(1.6)}to{filter:none}}
+
+.center{display:flex;flex-direction:column;justify-content:center;align-items:stretch;gap:16px}
+.throne{text-align:center;padding:16px 10px 14px;border:1px solid #6b5420;border-radius:4px;background:radial-gradient(circle at 50% 0%,rgba(217,169,63,.22),transparent 70%),var(--stone)}
+.crown{width:54px;height:34px;margin:0 auto 6px;background:linear-gradient(180deg,var(--gold-2),var(--gold));clip-path:polygon(0 100%,0 22%,22% 58%,50% 0,78% 58%,100% 22%,100% 100%)}
+.throne .lbl{font-family:var(--f-sc);font-size:12px;letter-spacing:.14em;color:var(--gold)}
+.throne .champ{font-family:var(--f-display);font-weight:900;font-size:30px;line-height:1.05;margin-top:6px;word-break:break-word;color:var(--muted)}
+.throne.crowned .champ{color:#f6eedc;border-radius:3px;padding:6px 8px;box-shadow:0 0 22px rgba(243,210,122,.45)}
+.center .m::before{display:none}
+.final-lbl{text-align:center;font-family:var(--f-sc);font-size:12px;letter-spacing:.14em;color:var(--muted)}
+
+.duelbar{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;justify-content:space-between}
+.duelbar .info{display:flex;flex-direction:column;gap:2px}
+.duelbar .info .k{font-family:var(--f-sc);font-size:13px;letter-spacing:.08em;color:var(--muted)}
+.duelbar .info .v{font-family:var(--f-display);font-size:26px;font-weight:700;line-height:1.05}
+.log{display:flex;flex-direction:column;gap:4px;max-height:200px;overflow:auto;font-size:14px;color:var(--muted)}
+.log .nm{font-weight:800;color:#f6eedc;padding:0 5px;border-radius:2px}
+
+/* Arena do duelo */
+.arena{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;background:rgba(9,8,16,.84);backdrop-filter:blur(3px);
+  padding:calc(16px + env(safe-area-inset-top,0px)) max(16px, env(safe-area-inset-right,0px)) calc(16px + env(safe-area-inset-bottom,0px)) max(16px, env(safe-area-inset-left,0px))}
+.arena-box{width:min(860px,100%);display:flex;flex-direction:column;gap:18px;align-items:center;text-align:center}
+.arena .rnd{font-family:var(--f-sc);letter-spacing:.16em;color:var(--gold);font-size:14px}
+.arena .dno{font-family:var(--f-display);font-size:clamp(30px,5vw,44px);font-weight:900;line-height:1;margin-top:2px}
+.versus{display:grid;grid-template-columns:1fr auto 1fr;gap:14px;align-items:center;width:100%}
+.banner{border:0;background-color:#000;background-image:linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,0) 45%,rgba(0,0,0,.3));
+  clip-path:polygon(0 0,100% 0,100% 86%,50% 100%,0 86%);padding:34px 14px 52px;min-height:200px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+  box-shadow:inset 0 6px 0 var(--gold);transition:transform .18s, filter .18s;animation:drop .55s cubic-bezier(.2,.9,.3,1.2) both}
+.banner.B{animation-delay:.12s}
+.banner .nm{font-family:var(--f-display);font-weight:900;font-size:clamp(30px,5vw,48px);line-height:1;word-break:break-word;color:#f6eedc;text-shadow:0 2px 0 rgba(0,0,0,.35)}
+.banner .hint{font-family:var(--f-sc);font-size:12px;letter-spacing:.14em;color:rgba(246,238,220,.7)}
+.banner:hover:not(:disabled){transform:translateY(-4px) scale(1.02)}
+.banner.can.pA:hover:not(:disabled){box-shadow:inset 0 6px 0 var(--gold),0 0 0 3px var(--rui)}
+.banner.can.pB:hover:not(:disabled){box-shadow:inset 0 6px 0 var(--gold),0 0 0 3px var(--bia)}
+.banner:disabled{opacity:.92}
+.vs{font-family:var(--f-display);font-size:clamp(34px,6vw,60px);font-weight:900;color:var(--gold);text-shadow:0 0 22px rgba(217,169,63,.5)}
+@keyframes drop{from{transform:translateY(-40px);opacity:0}to{transform:none;opacity:1}}
+.arena .whose{font-size:17px}
+.arena .whose b{font-family:var(--f-display);font-size:26px}
+.arena .whose.A b{color:var(--rui-soft)}.arena .whose.B b{color:var(--bia-soft)}
+.arena .wait{color:var(--muted)}
+
+/* Moeda */
+.coin-stage{perspective:800px;display:flex;justify-content:center;padding:8px 0}
+.coin{width:128px;height:128px;position:relative;transform-style:preserve-3d}
+.coin .face{position:absolute;inset:0;border-radius:50%;display:flex;align-items:center;justify-content:center;backface-visibility:hidden;
+  font-family:var(--f-display);font-weight:900;font-size:34px;padding:10px;text-align:center;line-height:1;
+  background:radial-gradient(circle at 35% 30%,var(--gold-2),var(--gold) 60%,#8d6a1f);border:4px solid #8d6a1f;box-shadow:inset 0 0 0 4px rgba(255,255,255,.18)}
+.coin .face.A{color:#7d0f1b}.coin .face.B{color:#0f3a75;transform:rotateY(180deg)}
+.coin.spin-A{animation:spinA 2.2s cubic-bezier(.2,.7,.2,1) forwards}
+.coin.spin-B{animation:spinB 2.2s cubic-bezier(.2,.7,.2,1) forwards}
+@keyframes spinA{from{transform:rotateY(0)}to{transform:rotateY(1800deg)}}
+@keyframes spinB{from{transform:rotateY(0)}to{transform:rotateY(1980deg)}}
+.coin.rest-B{transform:rotateY(180deg)}
+
+/* Celebração */
+.fest{position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;pointer-events:none;
+  padding:calc(16px + env(safe-area-inset-top,0px)) max(16px, env(safe-area-inset-right,0px)) calc(16px + env(safe-area-inset-bottom,0px)) max(16px, env(safe-area-inset-left,0px))}
+.fest.dim{background:radial-gradient(circle at 50% 45%,rgba(40,30,10,.55),rgba(9,8,16,.9));pointer-events:auto}
+.fest.lv4{background:radial-gradient(circle at 50% 45%,rgba(60,42,8,.92),rgba(9,8,16,.97))}
+.fest canvas{position:absolute;inset:0;width:100%;height:100%}
+.plaque{position:relative;text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px;animation:rise .6s cubic-bezier(.2,.9,.3,1.25) both}
+.plaque .lbl{font-family:var(--f-sc);letter-spacing:.18em;color:var(--gold-2);font-size:clamp(13px,2vw,16px);text-shadow:0 2px 8px rgba(0,0,0,.8)}
+.plaque .card{background-color:#000;background-image:linear-gradient(180deg,rgba(255,255,255,.16),rgba(0,0,0,.25));border:2px solid var(--gold);border-radius:4px;padding:14px 30px;box-shadow:0 10px 40px rgba(0,0,0,.6),0 0 40px rgba(243,210,122,.35)}
+.plaque .nm{font-family:var(--f-display);font-weight:900;line-height:1;word-break:break-word;color:#f6eedc}
+.plaque .by{font-size:15px;color:var(--parch);text-shadow:0 2px 8px rgba(0,0,0,.8)}
+.plaque .by b{font-family:var(--f-display);font-size:22px}
+.plaque.lv0 .nm{font-size:clamp(30px,6vw,46px)}
+.plaque.lv1 .nm{font-size:clamp(34px,7vw,56px)}
+.plaque.lv2 .nm{font-size:clamp(38px,8vw,68px)}
+.plaque.lv3 .nm{font-size:clamp(42px,9vw,84px)}
+.plaque.lv4 .nm{font-size:clamp(48px,11vw,120px)}
+.plaque.lv4 .card{padding:22px 44px;animation:glow 1.6s ease-in-out infinite alternate}
+.plaque.lv4 .crown{width:110px;height:68px;margin-bottom:4px;animation:bob 1.4s ease-in-out infinite alternate}
+.plaque .close{pointer-events:auto;margin-top:10px}
+@keyframes rise{from{transform:scale(.4) translateY(40px);opacity:0}to{transform:none;opacity:1}}
+@keyframes glow{from{box-shadow:0 10px 40px rgba(0,0,0,.6),0 0 30px rgba(243,210,122,.35)}to{box-shadow:0 10px 40px rgba(0,0,0,.6),0 0 90px rgba(243,210,122,.9)}}
+@keyframes bob{from{transform:translateY(0)}to{transform:translateY(-10px)}}
+.shake{animation:shake .5s}
+@keyframes shake{0%,100%{transform:none}20%{transform:translate(-6px,3px)}40%{transform:translate(6px,-3px)}60%{transform:translate(-4px,2px)}80%{transform:translate(3px,-2px)}}
+
+.foot{display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;align-items:center;color:var(--muted);font-size:13px;border-top:1px solid var(--line);padding-top:12px}
+
+/* Páginas do PDF (fora do ecrã) */
+#pdfStage{position:fixed;left:-20000px;top:0}
+.pg{width:794px;height:1123px;position:relative;overflow:hidden;color:#2a1d0c;font-family:var(--f-body);
+  background:radial-gradient(ellipse at 50% 40%,#f7efdc 0%,#eadbb8 70%,#d9c497 100%)}
+.pg .frame{position:absolute;inset:26px;border:3px double #8d6a1f}
+.pg .frame2{position:absolute;inset:36px;border:1px solid rgba(141,106,31,.5)}
+.pg .in{position:absolute;inset:64px 70px;display:flex;flex-direction:column}
+.pg .orn{display:flex;align-items:center;gap:14px;justify-content:center;color:#8d6a1f;font-family:var(--f-sc);letter-spacing:.3em;font-size:14px}
+.pg .orn::before,.pg .orn::after{content:"";height:1px;flex:1;background:linear-gradient(90deg,transparent,#8d6a1f,transparent)}
+.pg h1{font-family:var(--f-display);font-weight:900;font-size:76px;line-height:.95;text-align:center;margin:18px 0 6px;color:#2a1d0c}
+.pg h2{font-family:var(--f-display);font-weight:900;font-size:44px;line-height:1;margin:6px 0 4px;text-align:center}
+.pg .sub{text-align:center;font-family:var(--f-sc);letter-spacing:.14em;color:#6b5420;font-size:15px}
+.pg .pcrown{width:120px;height:74px;margin:30px auto 8px;background:linear-gradient(180deg,#f3d27a,#b8862a)}
+.pg .champ{font-family:var(--f-display);font-weight:900;font-size:88px;text-align:center;line-height:1;margin:10px auto;width:fit-content;color:#f6eedc;padding:10px 40px 16px;border:3px double #8d6a1f}
+.pg .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:34px}
+.pg .stat{border:1px solid #b8a06a;padding:12px;text-align:center;background:rgba(255,255,255,.25)}
+.pg .stat b{display:block;font-family:var(--f-display);font-size:38px;line-height:1}
+.pg .stat span{font-family:var(--f-sc);letter-spacing:.1em;font-size:12px;color:#6b5420}
+.pg .prose{font-size:17px;line-height:1.55;text-align:center;margin:26px auto 0;max-width:560px;color:#3b2c14}
+.pg .duel{display:grid;grid-template-columns:54px 1fr auto;gap:12px;align-items:baseline;padding:7px 0;border-bottom:1px solid rgba(141,106,31,.35);font-size:17px}
+.pg .duel .n{font-family:var(--f-sc);color:#8d6a1f;font-size:13px;letter-spacing:.08em}
+.pg .duel .w{font-family:var(--f-display);font-weight:900;font-size:22px;color:#f6eedc;padding:0 8px 2px;border:1px solid #8d6a1f}
+.pg .duel .l{color:#7a6a4a}
+.pg .duel .by{font-family:var(--f-sc);font-size:13px;letter-spacing:.08em}
+.pg .round{margin-top:18px}
+.pg .round h3{font-family:var(--f-display);font-size:32px;margin:0 0 4px;font-weight:700;color:#5a3f10}
+.pg .pno{position:absolute;bottom:44px;left:0;right:0;text-align:center;font-family:var(--f-sc);letter-spacing:.2em;font-size:12px;color:#8d6a1f}
+.pg .path{display:flex;flex-direction:column;gap:10px;margin-top:16px}
+.pg .step{display:grid;grid-template-columns:150px 1fr 70px;gap:12px;align-items:center;font-size:16px}
+.pg .sw{height:26px;border:1px solid #8d6a1f}
+
+@media (max-width:620px){
+  .versus{grid-template-columns:1fr;gap:6px}
+  .banner{min-height:130px;padding:22px 12px 40px}
+  .vs{font-size:34px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.share{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;padding:12px 14px;border:1px solid #6b5420;border-radius:4px;background:rgba(217,169,63,.07)}
+.share code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:14px;background:var(--night);border:1px solid var(--line);padding:6px 8px;border-radius:3px;min-width:0;overflow-wrap:anywhere;flex:1 1 260px;color:var(--gold-2)}
+.share .k{font-family:var(--f-sc);letter-spacing:.08em;font-size:13px;color:var(--muted)}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#6f6890;margin-right:6px;vertical-align:1px}
+.dot.on{background:#4cc38a}.dot.half{background:var(--gold)}
+</style>
+</head>
+<body>
+
+<div class="wrap" id="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>Torneio dos <span>Nomes</span></h1>
+      <p>32 nomes · 31 duelos · juízes <span class="cA">Rui</span> e <span class="cB">Bia</span></p>
+    </div>
+    <div class="status" id="status"></div>
+  </header>
+
+  <section id="shareBox"></section>
+  <section id="control"></section>
+
+  <section class="bracket-shell" aria-label="Chave do torneio">
+    <div class="bracket" id="bracket"></div>
+  </section>
+
+  <section class="panel" id="logPanel" hidden>
+    <div class="row" style="justify-content:space-between">
+      <h2>Crónica dos duelos</h2>
+      <button class="btn gold" id="pdfBtn2" hidden>Gerar crónica em PDF</button>
+    </div>
+    <div class="log" id="log"></div>
+  </section>
+
+  <div class="foot">
+    <span id="syncNote">A ligar à arena…</span>
+    <span id="adminArea"></span>
+  </div>
+</div>
+
+<div class="arena" id="arena" hidden></div>
+<div class="fest" id="fest" hidden><canvas id="fx"></canvas><div id="festBody"></div></div>
+<div id="pdfStage" aria-hidden="true"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js"></script>
+<script>
+(() => {
+const N = 32;
+const MATCHES = [16, 8, 4, 2, 1];
+const ROUND_NAMES = ["Dezasseis-avos", "Oitavos de final", "Quartos de final", "Meias-finais", "Final"];
+const NEXT_LABEL = ["Avança para os oitavos", "Avança para os quartos", "Avança para as meias-finais", "Avança para a final", "Campeão do torneio"];
+const JUDGES = { A: "Rui", B: "Bia" };
+const STEP = 64;
+const SAMPLE = ["Aurora","Bento","Carolina","Duarte","Eva","Francisco","Gabriela","Henrique","Inês","Joaquim","Leonor","Martim","Matilde","Nuno","Olívia","Pedro","Quitéria","Rafael","Sofia","Tomás","Úrsula","Vasco","Xavier","Yara","Zélia","Afonso","Beatriz","Caetano","Diana","Estêvão","Flor","Gonçalo","Helena","Isaac","Júlia","Lourenço","Madalena","Noé","Rosa","Salvador"];
+
+const blank = () => ({
+  phase: "entry", names: [], testMode: false,
+  players: { A: { uid: "" }, B: { uid: "" } },
+  slots: [], results: {}, revealed: {}, current: null, turn: null, coin: null, log: {}, seq: 0
+});
+
+let S = blank();
+let online = false, myUid = null, ROOM = null;
+const BROKERS = ["wss://broker.hivemq.com:8884/mqtt", "wss://broker.emqx.io:8084/mqtt"];
+let clients = [], connected = new Set(), heardRemote = false;
+let ui = { confirm: null, msg: "", msgOk: false, coinShown: null, coinAnimating: false, fresh: {}, lastSeq: null, pdfBusy: false };
+let queue = Promise.resolve();
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const other = (p) => p === "A" ? "B" : "A";
+const key = (r, i) => r + "-" + i;
+const pname = (p) => JUDGES[p] || "?";
+const art = (p) => p === "A" ? "o" : "a"; // o Rui / a Bia
+const reduceMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function localId() {
+  try {
+    let v = localStorage.getItem("torneio-uid");
+    if (!v) { v = "loc-" + Math.random().toString(36).slice(2, 10); localStorage.setItem("torneio-uid", v); }
+    return v;
+  } catch { return "tmp-" + Math.random().toString(36).slice(2, 10); }
+}
+function merge(t, p) {
+  for (const k in p) {
+    const v = p[k];
+    if (v && typeof v === "object" && !Array.isArray(v) && t[k] && typeof t[k] === "object" && !Array.isArray(t[k])) merge(t[k], v);
+    else t[k] = v;
+  }
+  return t;
+}
+function storageKey() { return "torneio-estado-" + ROOM; }
+function saveLocal() { if (!ROOM) return; try { localStorage.setItem(storageKey(), JSON.stringify(S)); } catch {} }
+function isNewer(a, b) {
+  const av = a?._v || 0, bv = b?._v || 0;
+  if (av !== bv) return av > bv;
+  return (a?._t || 0) > (b?._t || 0);
+}
+function topic() { return "torneio-dos-nomes/v1/" + ROOM + "/estado"; }
+function publish(state) {
+  const msg = JSON.stringify(state);
+  for (const c of clients) if (c.connected) c.publish(topic(), msg, { qos: 1, retain: true });
+}
+function write(patch, replace = false) {
+  const next = replace ? structuredClone(patch) : merge(structuredClone(S), patch);
+  next._v = (S._v || 0) + 1; next._t = Date.now(); next._by = myUid;
+  applyState(next); saveLocal();
+  if (ROOM) publish(next);
+  return Promise.resolve();
+}
+function receive(raw) {
+  let d; try { d = JSON.parse(raw); } catch { return; }
+  if (!d || typeof d !== "object" || Array.isArray(d)) return;
+  heardRemote = true;
+  if (isNewer(d, S)) { applyState(normalize(d)); saveLocal(); }
+  else if (isNewer(S, d)) publish(S); // o outro lado tem uma versão antiga: repõe a nossa
+}
+function updateNote() {
+  const n = connected.size;
+  if (!ROOM) { $("syncNote").innerHTML = `<span class="dot"></span>Ainda sem sala.`; return; }
+  $("syncNote").innerHTML = n ? `<span class="dot ${n === BROKERS.length ? "on" : "half"}"></span>Ligado em tempo real · sala ${esc(ROOM)}` : `<span class="dot"></span>A ligar à arena… (sala ${esc(ROOM)})`;
+}
+function connect() {
+  if (!window.mqtt) { $("syncNote").textContent = "Não foi possível carregar a ligação em tempo real. Verifica a internet e recarrega a página."; return; }
+  clients = BROKERS.map((url) => {
+    const c = window.mqtt.connect(url, { clientId: "tdn-" + Math.random().toString(36).slice(2, 12), reconnectPeriod: 3000, connectTimeout: 10000, clean: true });
+    c.on("connect", () => { connected.add(url); updateNote(); c.subscribe(topic(), { qos: 1 }); });
+    c.on("close", () => { connected.delete(url); updateNote(); });
+    c.on("error", () => {});
+    c.on("message", (_t, payload) => receive(payload.toString()));
+    return c;
+  });
+  // se o servidor não tiver nada mais recente, publica o estado guardado neste dispositivo
+  setTimeout(() => { if (!heardRemote && (S._v || 0) > 0) publish(S); }, 3000);
+}
+function makeRoomId() {
+  const abc = "abcdefghjkmnpqrstuvwxyz23456789", b = crypto.getRandomValues(new Uint8Array(8));
+  return [...b].map(x => abc[x % abc.length]).join("");
+}
+function roomLink() { return location.origin + location.pathname + "#" + ROOM; }
+
+/* ---------- Lógica da chave ---------- */
+function participant(r, i, k) {
+  if (r === 0) {
+    const idx = S.slots?.[2 * i + k];
+    if (idx == null) return { idx: null, sealed: true };
+    return S.revealed?.[key(0, i)] ? { idx } : { idx, sealed: true };
+  }
+  const w = S.results?.[key(r - 1, 2 * i + k)];
+  return w == null ? { idx: null } : { idx: w };
+}
+function order(r) {
+  // De cima para baixo, ala esquerda e depois ala direita: como as vezes alternam,
+  // duelos vizinhos na mesma coluna ficam sempre com juízes diferentes.
+  return [...Array(MATCHES[r]).keys()];
+}
+function nextMatch() {
+  for (let r = 0; r < 5; r++) for (const i of order(r)) if (S.results?.[key(r, i)] == null) return { r, i };
+  return null;
+}
+function duelNumber(r, i) {
+  let n = 0;
+  for (let rr = 0; rr < 5; rr++) for (const ii of order(rr)) { n++; if (rr === r && ii === i) return n; }
+  return n;
+}
+const doneCount = () => Object.keys(S.results || {}).length;
+const logEntries = () => Object.entries(S.log || {}).sort((a, b) => a[0].localeCompare(b[0])).map(([, e]) => ({ ...e, r: +e.key.split("-")[0], i: +e.key.split("-")[1] }));
+
+/* Tinta de cada nome: preto + 64 de vermelho por cada escolha do Rui, + 64 de azul por cada escolha da Bia */
+function inkOf(idx, beforeRound = 99) {
+  let R = 0, B = 0;
+  for (const e of logEntries()) if (e.w === idx && e.r < beforeRound) { if (e.by === "A") R += STEP; else B += STEP; }
+  return { R: Math.min(255, R), B: Math.min(255, B), css: `rgb(${Math.min(255, R)},0,${Math.min(255, B)})` };
+}
+
+function mySeat() {
+  if (S.testMode || !online) return S.turn;
+  return myStaticSeat();
+}
+function myStaticSeat() {
+  if (S.players?.A?.uid && S.players.A.uid === myUid) return "A";
+  if (S.players?.B?.uid && S.players.B.uid === myUid) return "B";
+  return null;
+}
+
+/* ---------- Ações ---------- */
+function addName() {
+  const inp = $("nameInput");
+  const v = (inp?.value || "").trim().replace(/\s+/g, " ");
+  if (!v) return;
+  const names = S.names || [];
+  if (names.length >= N) { setMsg("Já tens os 32 nomes."); return; }
+  if (names.some(n => n.toLocaleLowerCase("pt") === v.toLocaleLowerCase("pt"))) { setMsg(`"${v}" já está na lista.`); return; }
+  ui.msg = ""; inp.value = "";
+  write({ names: [...names, v] }).then(() => $("nameInput")?.focus());
+}
+function setMsg(t, ok = false) { ui.msg = t; ui.msgOk = ok; render(); }
+function removeName(i) { const names = [...(S.names || [])]; names.splice(i, 1); write({ names }); }
+function fillRandom() {
+  const have = new Set((S.names || []).map(n => n.toLocaleLowerCase("pt")));
+  const pool = SAMPLE.filter(n => !have.has(n.toLocaleLowerCase("pt"))).sort(() => Math.random() - .5);
+  const names = [...(S.names || [])];
+  while (names.length < N && pool.length) names.push(pool.pop());
+  write({ names });
+}
+function shuffle(n) {
+  const a = [...Array(n).keys()];
+  for (let i = n - 1; i > 0; i--) { const j = crypto.getRandomValues(new Uint32Array(1))[0] % (i + 1); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+function claimSeat(p) {
+  const mine = myStaticSeat();
+  if (mine && mine !== p) { setMsg(`Já estás como ${pname(mine)}. Liberta esse lugar primeiro.`); return; }
+  ui.msg = "";
+  write({ players: { [p]: { uid: myUid || "" } } });
+}
+function releaseSeat(p) { write({ players: { [p]: { uid: "" } } }); }
+function flipCoin() {
+  const result = crypto.getRandomValues(new Uint8Array(1))[0] % 2 ? "A" : "B";
+  write({ coin: { result, ts: Date.now() }, turn: result, slots: shuffle(N), phase: "playing", results: {}, revealed: {}, current: null, log: {}, seq: 0 });
+}
+function callDuel() {
+  if (S.current) return;
+  const m = nextMatch(); if (!m) return;
+  const patch = { current: key(m.r, m.i) };
+  if (m.r === 0) patch.revealed = { [key(0, m.i)]: true };
+  write(patch);
+}
+function pick(k) {
+  if (!S.current) return;
+  if (mySeat() !== S.turn) return;
+  const [r, i] = S.current.split("-").map(Number);
+  const p = participant(r, i, k);
+  if (p.idx == null) return;
+  const by = S.turn, seq = (S.seq || 0) + 1;
+  write({
+    results: { [S.current]: p.idx }, current: null, turn: other(by),
+    log: { ["e" + String(seq).padStart(2, "0")]: { key: S.current, w: p.idx, l: participant(r, i, 1 - k).idx, by, ts: Date.now() } },
+    seq, phase: S.current === "4-0" ? "done" : "playing"
+  });
+}
+function resetTournament() {
+  const keep = blank();
+  keep.names = S.names || []; keep.players = S.players || keep.players; keep.testMode = !!S.testMode; keep.phase = "lobby";
+  ui.confirm = null; write(keep, true);
+}
+function resetAll() { const b = blank(); b.players = S.players || b.players; b.testMode = !!S.testMode; ui.confirm = null; write(b, true); }
+
+/* ---------- Estado recebido ---------- */
+function applyState(next) {
+  const prevRevealed = { ...(S.revealed || {}) };
+  const prevSeq = ui.lastSeq;
+  S = next;
+  for (const k in S.revealed || {}) if (!prevRevealed[k]) { ui.fresh[k] = true; setTimeout(() => { delete ui.fresh[k]; }, 900); }
+  if (ui.coinShown === null && S.coin && Date.now() - S.coin.ts > 60000) ui.coinShown = S.coin.ts;
+  const seq = S.seq || 0;
+  if (prevSeq !== null && seq > prevSeq) {
+    const last = logEntries().pop();
+    if (last) celebrate(last);
+  }
+  ui.lastSeq = seq;
+  render();
+}
+
+/* ---------- Render ---------- */
+function render() { renderStatus(); renderShare(); renderControl(); renderBracket(); renderLog(); renderArena(); renderAdmin(); }
+
+function renderStatus() {
+  const chips = [];
+  if (S.testMode) chips.push(`<span class="chip warn">Modo de teste</span>`);
+  if (S.phase === "entry") chips.push(`<span class="chip">Inscrições: <b>${(S.names || []).length}/${N}</b></span>`);
+  if (S.phase === "playing" || S.phase === "done") chips.push(`<span class="chip">Duelos: <b>${doneCount()}/31</b></span>`);
+  if (S.phase === "playing" && S.turn) chips.push(`<span class="chip turn ${S.turn}">Escolhe agora: <b>${pname(S.turn)}</b></span>`);
+  const seat = myStaticSeat();
+  if (online && !S.testMode && seat) chips.push(`<span class="chip">Tu és: <b class="c${seat}">${pname(seat)}</b></span>`);
+  if (online && !S.testMode && !seat && S.phase !== "entry") chips.push(`<span class="chip">Estás a assistir</span>`);
+  $("status").innerHTML = chips.join("");
+}
+
+function pdfButton(id) { return `<button class="btn gold big" id="${id}" ${ui.pdfBusy ? "disabled" : ""}>${ui.pdfBusy ? "A escrever a crónica…" : "Gerar crónica em PDF"}</button>`; }
+
+function renderShare() {
+  const el = $("shareBox");
+  if (!ROOM || !(S.phase === "entry" || S.phase === "lobby")) { el.innerHTML = ""; return; }
+  el.innerHTML = `<div class="share"><span class="k">ENVIA ESTE LINK À BIA</span><code id="roomLink">${esc(roomLink())}</code><button class="btn" id="copyLink">Copiar link</button></div>`;
+  $("copyLink").onclick = async () => {
+    try { await navigator.clipboard.writeText(roomLink()); $("copyLink").textContent = "Copiado"; }
+    catch { const r = document.createRange(); r.selectNodeContents($("roomLink")); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); $("copyLink").textContent = "Agora copia (Ctrl+C)"; }
+    setTimeout(() => { if ($("copyLink")) $("copyLink").textContent = "Copiar link"; }, 2500);
+  };
+}
+
+function renderControl() {
+  const el = $("control");
+  if (!ROOM) {
+    el.innerHTML = `<div class="panel">
+      <h2>Abrir a arena</h2>
+      <p class="lede">Cria uma sala nova e envia o link à Bia. Os dois veem o mesmo torneio em tempo real, cada um no seu dispositivo.</p>
+      <div class="row"><button class="btn big gold" id="newRoom">Criar torneio novo</button></div>
+      <form class="row" id="joinForm" autocomplete="off">
+        <input type="text" id="roomCode" placeholder="Código da sala (ex.: k3m9qx2a)" aria-label="Código da sala" maxlength="200">
+        <button class="btn" type="submit">Entrar na sala</button>
+      </form>
+      <p class="msg" role="status">${esc(ui.msg)}</p>
+    </div>`;
+    $("newRoom").onclick = () => { location.hash = makeRoomId(); };
+    $("joinForm").onsubmit = (e) => { e.preventDefault(); const v = ($("roomCode").value || "").trim().toLowerCase().replace(/^.*#/, ""); if (/^[a-z0-9]{6,16}$/.test(v)) location.hash = v; else setMsg("Esse código não parece válido. Usa o link ou o código que recebeste."); };
+    return;
+  }
+
+  const msg = `<p class="msg ${ui.msgOk ? "ok" : ""}" role="status">${esc(ui.msg)}</p>`;
+  if (S.phase === "entry") {
+    const names = S.names || [], left = N - names.length;
+    const focused = document.activeElement?.id === "nameInput";
+    const val = $("nameInput")?.value || "";
+    el.innerHTML = `<div class="panel">
+      <h2>Inscrições</h2>
+      <p class="lede">Adiciona os nomes um a um. Ficam escondidos na chave e só são revelados quando entram no primeiro duelo.</p>
+      <div class="counter"><b>${left}</b>${left === 1 ? "nome em falta" : "nomes em falta"}</div>
+      <div class="meter" aria-hidden="true"><i style="width:${names.length / N * 100}%"></i></div>
+      <form class="row" id="addForm" autocomplete="off">
+        <input type="text" id="nameInput" placeholder="${left ? "Novo nome…" : "Lista completa"}" maxlength="40" ${left ? "" : "disabled"} aria-label="Novo nome">
+        <button class="btn gold" type="submit" ${left ? "" : "disabled"}>Adicionar nome</button>
+        ${left ? `<button class="btn ghost" type="button" id="fillBtn">Completar com nomes de teste</button>` : ""}
+      </form>
+      ${msg}
+      ${names.length ? `<ul class="names">${names.map((n, i) => `<li><span class="num">${i + 1}</span><span class="n" title="${esc(n)}">${esc(n)}</span><button type="button" data-rm="${i}" aria-label="Remover ${esc(n)}">×</button></li>`).join("")}</ul>` : `<p class="small">Ainda não há nomes. Escreve o primeiro acima.</p>`}
+      <div class="row"><button class="btn big" id="toLobby" ${left ? "disabled" : ""}>Fechar inscrições</button>
+      ${left ? `<span class="small">Precisas de 32 nomes para começar.</span>` : ""}</div>
+    </div>`;
+    const inp = $("nameInput"); if (inp) { inp.value = val; if (focused) inp.focus(); }
+    $("addForm").onsubmit = (e) => { e.preventDefault(); addName(); };
+    $("fillBtn") && ($("fillBtn").onclick = fillRandom);
+    el.querySelectorAll("[data-rm]").forEach(b => b.onclick = () => removeName(+b.dataset.rm));
+    $("toLobby").onclick = () => write({ phase: "lobby" });
+    return;
+  }
+  if (S.phase === "lobby") {
+    const mine = myStaticSeat();
+    const seat = (p) => {
+      const uid = S.players?.[p]?.uid;
+      const isMe = online && uid && uid === myUid;
+      let body;
+      if (S.testMode || !online) body = `<div class="tag">Controlado neste dispositivo (modo de teste)</div>`;
+      else if (isMe) body = `<div class="tag">És tu</div><div><button class="btn ghost" data-rel="${p}">Libertar lugar</button></div>`;
+      else if (uid) body = `<div class="small">Lugar ocupado noutro dispositivo</div>`;
+      else body = `<div><button class="btn" data-claim="${p}" ${mine ? "disabled" : ""}>${p === "A" ? "Sou o Rui" : "Sou a Bia"}</button></div>`;
+      return `<div class="seat ${p}"><h3>${p === "A" ? "Juiz · tinta vermelha" : "Juíza · tinta azul"}</h3><div class="who">${pname(p)}</div>${body}</div>`;
+    };
+    const ready = S.testMode || !online || (S.players?.A?.uid && S.players?.B?.uid);
+    el.innerHTML = `<div class="panel">
+      <h2>Os juízes</h2>
+      <p class="lede">O Rui e a Bia decidem os duelos à vez; ninguém decide dois seguidos. Cada escolha do Rui tinge o vencedor de vermelho e cada escolha da Bia tinge-o de azul. Quem começa decide-se com a moeda ao ar.</p>
+      <div class="seats">${seat("A")}${seat("B")}</div>
+      <label class="toggle"><input type="checkbox" id="testToggle" ${S.testMode ? "checked" : ""}> Modo de teste: um só dispositivo controla os dois juízes (as vezes continuam a alternar)</label>
+      ${msg}
+      <div class="row">
+        <button class="btn big gold" id="flip" ${ready ? "" : "disabled"}>Lançar a moeda</button>
+        <button class="btn ghost" id="backEntry">Voltar às inscrições</button>
+        ${ready ? "" : `<span class="small">O Rui e a Bia têm de ocupar os seus lugares, cada um no seu dispositivo.</span>`}
+      </div>
+    </div>`;
+    el.querySelectorAll("[data-claim]").forEach(b => b.onclick = () => claimSeat(b.dataset.claim));
+    el.querySelectorAll("[data-rel]").forEach(b => b.onclick = () => releaseSeat(b.dataset.rel));
+    $("testToggle").onchange = (e) => write(e.target.checked ? { testMode: true } : { testMode: false, players: { A: { uid: "" }, B: { uid: "" } } });
+    $("flip").onclick = flipCoin;
+    $("backEntry").onclick = () => write({ phase: "entry" });
+    return;
+  }
+  if (S.phase === "playing") {
+    const m = nextMatch(), seat = mySeat();
+    const label = m ? `Duelo ${duelNumber(m.r, m.i)} · ${ROUND_NAMES[m.r]}` : "";
+    el.innerHTML = `<div class="panel"><div class="duelbar">
+      <div class="info"><span class="k">Próximo</span><span class="v">${esc(label)}</span></div>
+      <div class="info"><span class="k">Vez de escolher</span><span class="v c${S.turn}">${pname(S.turn)}${online && !S.testMode && seat === S.turn ? " (tu)" : ""}</span></div>
+      <button class="btn big gold" id="duelBtn" ${S.current ? "disabled" : ""}>${S.current ? "Duelo em curso" : "Duelo!"}</button>
+    </div>${msg}</div>`;
+    $("duelBtn").onclick = callDuel;
+    return;
+  }
+  if (S.phase === "done") {
+    const ci = S.results?.["4-0"];
+    el.innerHTML = `<div class="panel" style="align-items:center;text-align:center">
+      <div class="crown" style="width:80px;height:50px;margin:0"></div>
+      <div style="background-color:${inkOf(ci).css};background-image:linear-gradient(180deg,rgba(255,255,255,.14),rgba(0,0,0,.25));border-radius:4px;padding:8px 26px;border:2px solid var(--gold)"><h2 style="font-size:clamp(40px,8vw,72px);color:#f6eedc">${esc(S.names?.[ci])}</h2></div>
+      <p class="lede">Campeão do torneio, após 31 duelos.</p>
+      ${pdfButton("pdfBtn")}
+      ${msg}
+    </div>`;
+    $("pdfBtn").onclick = makePdf;
+  }
+}
+
+function slotHtml(r, i, k, res) {
+  const p = participant(r, i, k);
+  let cls = "s", txt, style = "";
+  if (p.sealed) { cls += " sealed"; txt = `<span class="seal"></span><span class="t">${p.idx == null ? "Por sortear" : "Selado"}</span>`; }
+  else if (p.idx == null) { cls += " empty"; txt = `<span class="t">—</span>`; }
+  else {
+    cls += " named";
+    style = `background-color:${inkOf(p.idx, r).css}`;
+    txt = `<span class="t" title="${esc(S.names?.[p.idx])}">${esc(S.names?.[p.idx])}</span>`;
+    if (res != null) cls += res === p.idx ? " win" : " lose";
+    if (r === 0 && ui.fresh[key(0, i)]) cls += " fresh";
+  }
+  return `<div class="${cls}" ${style ? `style="${style}"` : ""}>${txt}</div>`;
+}
+function matchHtml(r, i) {
+  const k = key(r, i), res = S.results?.[k];
+  return `<div class="m ${S.current === k ? "cur" : ""}">${slotHtml(r, i, 0, res)}${slotHtml(r, i, 1, res)}</div>`;
+}
+function columnHtml(r, side) {
+  const n = MATCHES[r] / 2, start = side === "L" ? 0 : n;
+  const ids = [...Array(n).keys()].map(x => start + x);
+  let inner = "";
+  if (n === 1) inner = matchHtml(r, ids[0]);
+  else for (let x = 0; x < ids.length; x += 2) inner += `<div class="pair">${matchHtml(r, ids[x])}${matchHtml(r, ids[x + 1])}</div>`;
+  return `<div class="col r${r} ${side}"><div class="col-h">${ROUND_NAMES[r]}</div>${inner}</div>`;
+}
+function renderBracket() {
+  const ci = S.results?.["4-0"];
+  const left = [0, 1, 2, 3].map(r => columnHtml(r, "L")).join("");
+  const right = [3, 2, 1, 0].map(r => columnHtml(r, "R")).join("");
+  const center = `<div class="col center">
+    <div class="throne ${ci != null ? "crowned" : ""}"><div class="crown"></div><div class="lbl">CAMPEÃO</div><div class="champ" ${ci != null ? `style="background-color:${inkOf(ci).css}"` : ""}>${ci != null ? esc(S.names?.[ci]) : "?"}</div></div>
+    <div class="final-lbl">FINAL</div>${matchHtml(4, 0)}</div>`;
+  $("bracket").innerHTML = left + center + right;
+}
+function renderLog() {
+  const entries = logEntries().reverse();
+  $("logPanel").hidden = !entries.length;
+  $("log").innerHTML = entries.map(e => `<div><span class="c${e.by}">${pname(e.by)}</span> escolheu <span class="nm" style="background-color:${inkOf(e.w, e.r + 1).css}">${esc(S.names?.[e.w])}</span> contra ${esc(S.names?.[e.l])} · ${ROUND_NAMES[e.r]}, duelo ${duelNumber(e.r, e.i)}</div>`).join("");
+  const b = $("pdfBtn2");
+  b.hidden = S.phase !== "done";
+  b.disabled = ui.pdfBusy;
+  b.onclick = makePdf;
+}
+
+function renderArena() {
+  const a = $("arena");
+  if (S.coin && ui.coinShown !== S.coin.ts && Date.now() - S.coin.ts < 60000 && !ui.coinAnimating) {
+    ui.coinAnimating = true;
+    const res = S.coin.result, ts = S.coin.ts;
+    a.hidden = false; a.dataset.sig = "";
+    a.innerHTML = `<div class="arena-box">
+      <div class="rnd">MOEDA AO AR</div>
+      <div class="coin-stage"><div class="coin" id="coin"><div class="face A">Rui</div><div class="face B">Bia</div></div></div>
+      <div class="whose ${res}" id="coinRes" style="visibility:hidden">Começa ${art(res)} <b>${pname(res)}</b></div>
+      <button class="btn" id="coinOk" style="visibility:hidden">Para a arena</button></div>`;
+    const c = $("coin");
+    const finish = () => { $("coinRes").style.visibility = "visible"; $("coinOk").style.visibility = "visible"; };
+    if (reduceMotion()) { c.classList.add("rest-" + res); finish(); } else { c.classList.add("spin-" + res); setTimeout(finish, 2250); }
+    $("coinOk").onclick = () => { ui.coinShown = ts; ui.coinAnimating = false; render(); };
+    return;
+  }
+  if (ui.coinAnimating) return;
+  if (!S.current || S.phase !== "playing") { a.hidden = true; a.innerHTML = ""; a.dataset.sig = ""; return; }
+  const [r, i] = S.current.split("-").map(Number);
+  const p0 = participant(r, i, 0), p1 = participant(r, i, 1);
+  const canPick = mySeat() === S.turn;
+  const sig = S.current + "|" + canPick + "|" + S.turn;
+  if (a.dataset.sig === sig && !a.hidden) return;
+  a.dataset.sig = sig; a.hidden = false;
+  const ban = (p, k) => `<button class="banner ${k ? "B" : "A"} ${canPick ? "can" : ""} p${S.turn}" data-pick="${k}" ${canPick ? "" : "disabled"} style="background-color:${inkOf(p.idx, r).css}"><span class="nm">${esc(S.names?.[p.idx])}</span>${canPick ? `<span class="hint">ESCOLHER</span>` : ""}</button>`;
+  a.innerHTML = `<div class="arena-box" role="dialog" aria-label="Duelo">
+    <div><div class="rnd">${ROUND_NAMES[r].toUpperCase()}</div><div class="dno">Duelo ${duelNumber(r, i)} de 31</div></div>
+    <div class="versus">${ban(p0, 0)}<div class="vs">vs</div>${ban(p1, 1)}</div>
+    ${canPick ? `<div class="whose ${S.turn}"><b>${pname(S.turn)}</b>, escolhe quem avança.</div>`
+      : `<div class="whose wait ${S.turn}">À espera da escolha ${S.turn === "A" ? "do" : "da"} <b>${pname(S.turn)}</b>. Não podes decidir dois duelos seguidos.</div>`}
+  </div>`;
+  a.querySelectorAll("[data-pick]").forEach(b => b.onclick = () => pick(+b.dataset.pick));
+}
+
+function renderAdmin() {
+  const el = $("adminArea");
+  if (S.phase === "entry" && !(S.names || []).length) { el.innerHTML = ""; return; }
+  if (ui.confirm) {
+    const txt = ui.confirm === "t" ? "Recomeçar o torneio? Os resultados apagam-se; os nomes mantêm-se e o sorteio é refeito." : "Apagar tudo, incluindo a lista de nomes?";
+    el.innerHTML = `<span class="confirm">${txt} <button class="btn" id="cYes">Sim</button><button class="btn ghost" id="cNo">Cancelar</button></span>`;
+    $("cYes").onclick = ui.confirm === "t" ? resetTournament : resetAll;
+    $("cNo").onclick = () => { ui.confirm = null; render(); };
+    return;
+  }
+  el.innerHTML = `<span class="row">${S.phase === "playing" || S.phase === "done" ? `<button class="btn ghost" id="rT">Recomeçar torneio</button>` : ""}<button class="btn ghost" id="rA">Apagar tudo</button></span>`;
+  $("rT") && ($("rT").onclick = () => { ui.confirm = "t"; render(); });
+  $("rA").onclick = () => { ui.confirm = "a"; render(); };
+}
+
+/* ---------- Celebração (cresce com a ronda) ---------- */
+const FX = { parts: [], raf: 0, emitters: [], until: 0 };
+const LEVELS = [
+  { count: 45,  dur: 2000, cannons: 1, rain: 0,   fireworks: 0,  dim: false },
+  { count: 100, dur: 2600, cannons: 2, rain: 0,   fireworks: 0,  dim: false },
+  { count: 200, dur: 3400, cannons: 2, rain: 60,  fireworks: 0,  dim: true },
+  { count: 340, dur: 4400, cannons: 3, rain: 140, fireworks: 3,  dim: true },
+  { count: 700, dur: 0,    cannons: 4, rain: 400, fireworks: 14, dim: true }
+];
+let festTimer = 0;
+function celebrate(e) {
+  const lv = Math.max(0, Math.min(4, e.r));
+  const L = LEVELS[lv];
+  const fest = $("fest"), body = $("festBody");
+  const ink = inkOf(e.w, e.r + 1);
+  clearTimeout(festTimer);
+  fest.hidden = false;
+  fest.classList.toggle("dim", L.dim || lv === 4);
+  fest.classList.toggle("lv4", lv === 4);
+  body.innerHTML = `<div class="plaque lv${lv}">
+    ${lv >= 3 ? `<div class="crown"></div>` : ""}
+    <div class="lbl">${NEXT_LABEL[lv].toUpperCase()}</div>
+    <div class="card" style="background-color:${ink.css}"><div class="nm">${esc(S.names?.[e.w])}</div></div>
+    <div class="by">por escolha ${e.by === "A" ? "do" : "da"} <b class="c${e.by}">${pname(e.by)}</b></div>
+    ${lv === 4 ? `<button class="btn gold close" id="festClose">Ver a chave</button>` : ""}
+  </div>`;
+  if (lv >= 3 && !reduceMotion()) { $("wrap").classList.remove("shake"); void $("wrap").offsetWidth; $("wrap").classList.add("shake"); }
+  if (lv === 4) $("festClose").onclick = endFest;
+  else festTimer = setTimeout(endFest, L.dur);
+  if (!reduceMotion()) startConfetti(L, e.by, lv);
+}
+function endFest() {
+  clearTimeout(festTimer);
+  $("fest").hidden = true; $("festBody").innerHTML = "";
+  FX.parts = []; FX.emitters = []; cancelAnimationFrame(FX.raf); FX.raf = 0;
+}
+function palette(by) {
+  const judge = by === "A" ? ["#d0313f", "#ff5a6a", "#a3162a"] : ["#2f72c8", "#5aa0ff", "#1a4f9a"];
+  return [...judge, ...judge, "#f3d27a", "#d9a93f", "#efe6d2", "#ffffff"];
+}
+function startConfetti(L, by, lv) {
+  const cv = $("fx"), ctx = cv.getContext("2d");
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const W = cv.width = innerWidth * dpr, H = cv.height = innerHeight * dpr;
+  const cols = palette(by);
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  const piece = (x, y, vx, vy, kind) => FX.parts.push({ x, y, vx, vy, rot: rnd(0, 6.28), vr: rnd(-.3, .3), w: rnd(6, 12) * dpr, h: rnd(4, 8) * dpr, c: cols[(Math.random() * cols.length) | 0], life: rnd(140, 260), kind: kind || (Math.random() < .2 ? "o" : "r"), sway: rnd(0, 6.28) });
+  const cannon = (n, side) => {
+    const x = side === "L" ? 0 : side === "R" ? W : W / 2, y = H;
+    for (let i = 0; i < n; i++) {
+      const ang = side === "L" ? rnd(-1.25, -.75) : side === "R" ? rnd(-2.4, -1.9) : rnd(-2.1, -1.05);
+      const sp = rnd(14, 24) * dpr * (0.7 + lv * .08);
+      piece(x, y, Math.cos(ang) * sp, Math.sin(ang) * sp);
+    }
+  };
+  const firework = () => {
+    const x = rnd(W * .15, W * .85), y = rnd(H * .12, H * .45), n = 60 + lv * 10;
+    const c = cols[(Math.random() * cols.length) | 0];
+    for (let i = 0; i < n; i++) { const a = (i / n) * 6.283, sp = rnd(4, 9) * dpr; FX.parts.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, rot: 0, vr: 0, w: 3 * dpr, h: 3 * dpr, c, life: rnd(60, 100), kind: "spark", sway: 0 }); }
+  };
+  const per = Math.round(L.count / L.cannons);
+  const sides = ["C", "L", "R", "C"].slice(0, L.cannons);
+  sides.forEach((s, k) => setTimeout(() => cannon(per, s), k * 180));
+  if (L.rain) { let left = L.rain; const t = setInterval(() => { for (let i = 0; i < 12 && left > 0; i++, left--) piece(rnd(0, W), -20, rnd(-1, 1), rnd(1, 4) * dpr); if (left <= 0 || $("fest").hidden) clearInterval(t); }, 60); }
+  for (let f = 0; f < L.fireworks; f++) setTimeout(() => { if (!$("fest").hidden) firework(); }, 300 + f * 420);
+  if (lv === 4) { // super festa: canhões em ciclo enquanto a festa estiver aberta
+    let cyc = 0; const t = setInterval(() => { if ($("fest").hidden || cyc > 24) { clearInterval(t); return; } cannon(60, ["L", "R", "C"][cyc % 3]); if (cyc % 2) firework(); cyc++; }, 700);
+  }
+  if (FX.raf) return;
+  const tick = () => {
+    ctx.clearRect(0, 0, W, H);
+    FX.parts = FX.parts.filter(p => p.life > 0 && p.y < H + 60);
+    for (const p of FX.parts) {
+      p.life--;
+      if (p.kind === "spark") { p.vx *= .96; p.vy = p.vy * .96 + .08 * dpr; p.x += p.vx; p.y += p.vy; ctx.globalAlpha = Math.max(0, p.life / 80); ctx.fillStyle = p.c; ctx.beginPath(); ctx.arc(p.x, p.y, p.w, 0, 6.283); ctx.fill(); continue; }
+      p.vx *= .985; p.vy = p.vy * .985 + .32 * dpr; p.sway += .1; p.x += p.vx + Math.sin(p.sway) * .8 * dpr; p.y += p.vy; p.rot += p.vr;
+      ctx.globalAlpha = Math.min(1, p.life / 40);
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.fillStyle = p.c;
+      if (p.kind === "o") { ctx.beginPath(); ctx.arc(0, 0, p.h / 1.6, 0, 6.283); ctx.fill(); }
+      else ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h * Math.abs(Math.cos(p.sway)) + 1);
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+    if (!$("fest").hidden || FX.parts.length) FX.raf = requestAnimationFrame(tick); else FX.raf = 0;
+  };
+  FX.raf = requestAnimationFrame(tick);
+}
+
+/* ---------- Crónica em PDF ---------- */
+function loadScript(src) {
+  return new Promise((res, rej) => { const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = () => rej(new Error("load")); document.head.appendChild(s); });
+}
+const VERBS = ["vence", "derrota", "supera", "afasta", "triunfa sobre", "deixa para trás", "bate", "elimina"];
+function fmtDate(ts) { try { return new Date(ts).toLocaleDateString("pt-PT", { day: "numeric", month: "long", year: "numeric" }); } catch { return ""; } }
+function pdfPages() {
+  const names = S.names || [], ents = logEntries();
+  const ci = S.results?.["4-0"], champ = names[ci], cInk = inkOf(ci);
+  const rui = ents.filter(e => e.by === "A").length, bia = ents.length - rui;
+  const champPath = ents.filter(e => e.w === ci);
+  const ruiC = champPath.filter(e => e.by === "A").length, biaC = champPath.length - ruiC;
+  const opener = S.coin?.result;
+  const frame = (inner, n) => `<div class="pg"><div class="frame"></div><div class="frame2"></div><div class="in">${inner}</div>${n ? `<div class="pno">— ${n} —</div>` : ""}</div>`;
+  const duelRow = (e, k) => `<div class="duel"><span class="n">Nº ${duelNumber(e.r, e.i)}</span>
+    <span><span class="w" style="background-color:${inkOf(e.w, e.r + 1).css}">${esc(names[e.w])}</span> <span class="l">${VERBS[(duelNumber(e.r, e.i) * 3 + k) % VERBS.length]} ${esc(names[e.l])}</span></span>
+    <span class="by" style="color:${e.by === "A" ? "#b01f30" : "#1f5aa8"}">${e.by === "A" ? "pelo Rui" : "pela Bia"}</span></div>`;
+  const roundBlock = (r) => `<div class="round"><h3>${ROUND_NAMES[r]}</h3>${ents.filter(e => e.r === r).map(duelRow).join("")}</div>`;
+  const pages = [];
+  pages.push(frame(`
+    <div class="orn">CRÓNICA</div>
+    <h1>O Torneio<br>dos Nomes</h1>
+    <div class="sub">32 PRETENDENTES · 31 DUELOS · DOIS JUÍZES</div>
+    <div class="pcrown crown"></div>
+    <div class="sub">E O CAMPEÃO É</div>
+    <div class="champ" style="background-color:${cInk.css}">${esc(champ)}</div>
+    <div class="sub">tinta final rgb(${cInk.R}, 0, ${cInk.B})</div>
+    <p class="prose">Sob o olhar dos juízes <b style="color:#b01f30">Rui</b> e <b style="color:#1f5aa8">Bia</b>, trinta e dois nomes entraram selados na arena. A moeda ao ar deu a primeira palavra ${opener === "A" ? "ao Rui" : "à Bia"}, e daí em diante as decisões alternaram, duelo após duelo, até restar um só.</p>
+    <div class="stats">
+      <div class="stat"><b style="color:#b01f30">${rui}</b><span>DUELOS DECIDIDOS PELO RUI</span></div>
+      <div class="stat"><b>${champPath.length}</b><span>VITÓRIAS DO CAMPEÃO</span></div>
+      <div class="stat"><b style="color:#1f5aa8">${bia}</b><span>DUELOS DECIDIDOS PELA BIA</span></div>
+    </div>
+    <div style="flex:1"></div>
+    <div class="orn">${esc(fmtDate(Date.now()).toUpperCase())}</div>`, 0));
+  pages.push(frame(`<div class="orn">LIVRO I</div><h2>A primeira ronda</h2><div class="sub">DEZASSEIS DUELOS · OS SELOS QUEBRAM-SE</div>${roundBlock(0)}`, 1));
+  pages.push(frame(`<div class="orn">LIVRO II</div><h2>O caminho estreita</h2><div class="sub">OITAVOS E QUARTOS DE FINAL</div>${roundBlock(1)}${roundBlock(2)}`, 2));
+  pages.push(frame(`<div class="orn">LIVRO III</div><h2>A glória</h2><div class="sub">MEIAS-FINAIS E FINAL</div>${roundBlock(3)}${roundBlock(4)}
+    <div class="round"><h3>O caminho do campeão</h3>
+    <p style="margin:0 0 8px;font-size:15px;color:#5a4520">Cada escolha do Rui juntou ${STEP} de vermelho à tinta de ${esc(champ)}; cada escolha da Bia juntou ${STEP} de azul. ${ruiC} vitórias pelo Rui, ${biaC} pela Bia.</p>
+    <div class="path">${champPath.map(e => { const k = inkOf(ci, e.r + 1); return `<div class="step"><span style="font-family:var(--f-sc);font-size:13px;letter-spacing:.06em">${ROUND_NAMES[e.r].toUpperCase()}</span><span>contra <b>${esc(names[e.l])}</b>, ${e.by === "A" ? "pelo Rui" : "pela Bia"}</span><span class="sw" style="background:${k.css}"></span></div>`; }).join("")}</div></div>`, 3));
+  return pages;
+}
+async function makePdf() {
+  if (ui.pdfBusy) return;
+  ui.pdfBusy = true; ui.msg = ""; render();
+  try {
+    if (!window.jspdf) await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
+    if (!window.html2canvas) await loadScript("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js");
+    await document.fonts.ready;
+    const stage = $("pdfStage");
+    stage.innerHTML = pdfPages().join("");
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4", compress: true });
+    const pw = doc.internal.pageSize.getWidth(), ph = doc.internal.pageSize.getHeight();
+    const pgs = [...stage.querySelectorAll(".pg")];
+    for (let k = 0; k < pgs.length; k++) {
+      const c = await html2canvas(pgs[k], { scale: 2, backgroundColor: null, logging: false });
+      if (k) doc.addPage("a4", "portrait");
+      doc.addImage(c.toDataURL("image/jpeg", .9), "JPEG", 0, 0, pw, ph);
+      if (k === 0) { // a chave, numa página deitada
+        const bc = await html2canvas($("bracket"), { scale: 1.6, backgroundColor: "#12111c", logging: false });
+        doc.addPage("a4", "landscape");
+        const lw = doc.internal.pageSize.getWidth(), lh = doc.internal.pageSize.getHeight();
+        doc.setFillColor(18, 17, 28); doc.rect(0, 0, lw, lh, "F");
+        const m = 24, ratio = Math.min((lw - 2 * m) / bc.width, (lh - 2 * m) / bc.height);
+        const w = bc.width * ratio, h = bc.height * ratio;
+        doc.addImage(bc.toDataURL("image/jpeg", .9), "JPEG", (lw - w) / 2, (lh - h) / 2, w, h);
+      }
+    }
+    stage.innerHTML = "";
+    const champ = (S.names?.[S.results?.["4-0"]] || "campeao").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^A-Za-z0-9]+/g, "-");
+    doc.save(`Cronica-Torneio-dos-Nomes-${champ}.pdf`);
+    ui.msg = "Crónica guardada."; ui.msgOk = true;
+  } catch (e) {
+    ui.msgOk = false;
+    ui.msg = e?.code === "declined" ? "Guardar cancelado." : e?.code === "rate_limited" ? "Já há um pedido de gravação aberto. Tenta daqui a pouco." : "Não foi possível gerar o PDF. Tenta outra vez.";
+  } finally { ui.pdfBusy = false; $("pdfStage").innerHTML = ""; render(); }
+}
+
+function normalize(d) { return merge(blank(), d || {}); }
+
+/* ---------- Arranque ---------- */
+addEventListener("hashchange", () => location.reload());
+myUid = localId();
+{
+  const room = decodeURIComponent((location.hash || "").slice(1)).toLowerCase();
+  if (/^[a-z0-9]{6,16}$/.test(room)) {
+    ROOM = room; online = true;
+    try { const saved = JSON.parse(localStorage.getItem(storageKey()) || "null"); if (saved) S = normalize(saved); } catch {}
+    if (S.coin) ui.coinShown = S.coin.ts;
+  }
+  ui.lastSeq = S.seq || 0;
+  render(); updateNote();
+  if (ROOM) connect();
+}
+})();
+</script>
+</body>
+</html>
