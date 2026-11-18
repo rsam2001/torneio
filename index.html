@@ -341,10 +341,25 @@ function isNewer(a, b) {
   return (a?._t || 0) > (b?._t || 0);
 }
 function topic() { return "torneio-dos-nomes/v1/" + ROOM + "/estado"; }
-function publish(state) {
-  const msg = JSON.stringify(state);
-  for (const c of clients) if (c.connected) c.publish(topic(), msg, { qos: 1, retain: true });
+const NTFY = "https://ntfy.sh/";
+function ntfyTopic() { return "torneio-dos-nomes-v1-" + ROOM; }
+let ntfyOk = false, es = null, helloSent = false;
+async function gz(str) {
+  if (!window.CompressionStream) return str;
+  const buf = await new Response(new Blob([str]).stream().pipeThrough(new CompressionStream("gzip"))).arrayBuffer();
+  let bin = ""; const u = new Uint8Array(buf); for (let i = 0; i < u.length; i++) bin += String.fromCharCode(u[i]);
+  return "z:" + btoa(bin);
 }
+async function gunz(str) {
+  if (!str.startsWith("z:")) return str;
+  const bin = atob(str.slice(2)), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+  return await new Response(new Blob([u]).stream().pipeThrough(new DecompressionStream("gzip"))).text();
+}
+function sendRaw(msg) {
+  for (const c of clients) if (c.connected) c.publish(topic(), msg, { qos: 1, retain: true });
+  gz(msg).then(body => fetch(NTFY + ntfyTopic(), { method: "POST", body })).catch(() => {});
+}
+function publish(state) { sendRaw(JSON.stringify(state)); }
 function write(patch, replace = false) {
   const next = replace ? structuredClone(patch) : merge(structuredClone(S), patch);
   next._v = (S._v || 0) + 1; next._t = Date.now(); next._by = myUid;
@@ -352,30 +367,48 @@ function write(patch, replace = false) {
   if (ROOM) publish(next);
   return Promise.resolve();
 }
+let lastRepublish = 0;
 function receive(raw) {
   let d; try { d = JSON.parse(raw); } catch { return; }
   if (!d || typeof d !== "object" || Array.isArray(d)) return;
+  if (d.hello) { // alguém acabou de entrar sem estado: quem tem o torneio volta a enviá-lo
+    if ((S._v || 0) > 0 && d.from !== myUid && Date.now() - lastRepublish > 4000) { lastRepublish = Date.now(); publish(S); }
+    return;
+  }
   heardRemote = true;
   if (isNewer(d, S)) { applyState(normalize(d)); saveLocal(); }
-  else if (isNewer(S, d)) publish(S); // o outro lado tem uma versão antiga: repõe a nossa
+  else if (isNewer(S, d) && Date.now() - lastRepublish > 4000) { lastRepublish = Date.now(); publish(S); }
 }
 function updateNote() {
-  const n = connected.size;
+  const n = connected.size + (ntfyOk ? 1 : 0), total = BROKERS.length + 1;
   if (!ROOM) { $("syncNote").innerHTML = `<span class="dot"></span>Ainda sem sala.`; return; }
-  $("syncNote").innerHTML = n ? `<span class="dot ${n === BROKERS.length ? "on" : "half"}"></span>Ligado em tempo real · sala ${esc(ROOM)}` : `<span class="dot"></span>A ligar à arena… (sala ${esc(ROOM)})`;
+  $("syncNote").innerHTML = n ? `<span class="dot on"></span>Ligado em tempo real (${n}/${total} canais) · sala ${esc(ROOM)}` : `<span class="dot"></span>A ligar à arena… (sala ${esc(ROOM)}). Se isto não mudar, a rede pode estar a bloquear a ligação.`;
 }
 function connect() {
-  if (!window.mqtt) { $("syncNote").textContent = "Não foi possível carregar a ligação em tempo real. Verifica a internet e recarrega a página."; return; }
-  clients = BROKERS.map((url) => {
-    const c = window.mqtt.connect(url, { clientId: "tdn-" + Math.random().toString(36).slice(2, 12), reconnectPeriod: 3000, connectTimeout: 10000, clean: true });
-    c.on("connect", () => { connected.add(url); updateNote(); c.subscribe(topic(), { qos: 1 }); });
-    c.on("close", () => { connected.delete(url); updateNote(); });
-    c.on("error", () => {});
-    c.on("message", (_t, payload) => receive(payload.toString()));
-    return c;
-  });
-  // se o servidor não tiver nada mais recente, publica o estado guardado neste dispositivo
-  setTimeout(() => { if (!heardRemote && (S._v || 0) > 0) publish(S); }, 3000);
+  // Canal 1: ntfy.sh (porta 443, passa na maioria das redes de empresa)
+  try {
+    es = new EventSource(NTFY + ntfyTopic() + "/sse?since=12h");
+    es.onopen = () => { ntfyOk = true; updateNote(); };
+    es.onerror = () => { ntfyOk = false; updateNote(); };
+    es.onmessage = async (ev) => {
+      try { const m = JSON.parse(ev.data); if (m.event === "message" && m.message) receive(await gunz(m.message)); } catch {}
+    };
+  } catch {}
+  // Canais 2 e 3: servidores MQTT públicos
+  if (window.mqtt) {
+    clients = BROKERS.map((url) => {
+      const c = window.mqtt.connect(url, { clientId: "tdn-" + Math.random().toString(36).slice(2, 12), reconnectPeriod: 5000, connectTimeout: 10000, clean: true });
+      c.on("connect", () => { connected.add(url); updateNote(); c.subscribe(topic(), { qos: 1 }); });
+      c.on("close", () => { connected.delete(url); updateNote(); });
+      c.on("error", () => {});
+      c.on("message", (_t, payload) => receive(payload.toString()));
+      return c;
+    });
+  }
+  setTimeout(() => {
+    if ((S._v || 0) > 0) { if (!heardRemote) publish(S); }
+    else if (!helloSent) { helloSent = true; sendRaw(JSON.stringify({ hello: 1, from: myUid })); }
+  }, 3500);
 }
 function makeRoomId() {
   const abc = "abcdefghjkmnpqrstuvwxyz23456789", b = crypto.getRandomValues(new Uint8Array(8));
