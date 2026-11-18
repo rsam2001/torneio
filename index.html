@@ -558,8 +558,15 @@ function pdfButton(id) { return `<button class="btn gold big" id="${id}" ${ui.pd
 
 function renderShare() {
   const el = $("shareBox");
-  if (!ROOM || !(S.phase === "entry" || S.phase === "lobby")) { el.innerHTML = ""; return; }
-  el.innerHTML = `<div class="share"><span class="k">ENVIA ESTE LINK À BIA</span><code id="roomLink">${esc(roomLink())}</code><button class="btn" id="copyLink">Copiar link</button></div>`;
+  const takeover = ROOM && !S.testMode && S.phase !== "entry" && !myStaticSeat()
+    ? `<div class="share"><span class="k">ESTE DISPOSITIVO ESTÁ A ASSISTIR</span><span class="small" style="flex:1 1 220px">Mudaste de dispositivo? Retoma o teu lugar aqui. O outro dispositivo passa a assistir.</span><button class="btn" data-take="A">Continuar como Rui</button><button class="btn" data-take="B">Continuar como Bia</button></div>` : "";
+  if (!ROOM || !(S.phase === "entry" || S.phase === "lobby")) {
+    el.innerHTML = takeover;
+    el.querySelectorAll("[data-take]").forEach(b => b.onclick = () => write({ players: { [b.dataset.take]: { uid: myUid } } }));
+    return;
+  }
+  el.innerHTML = `<div class="share"><span class="k">ENVIA ESTE LINK À BIA</span><code id="roomLink">${esc(roomLink())}</code><button class="btn" id="copyLink">Copiar link</button></div>` + (takeover ? `<div style="height:10px"></div>` + takeover : "");
+  el.querySelectorAll("[data-take]").forEach(b => b.onclick = () => write({ players: { [b.dataset.take]: { uid: myUid } } }));
   $("copyLink").onclick = async () => {
     try { await navigator.clipboard.writeText(roomLink()); $("copyLink").textContent = "Copiado"; }
     catch { const r = document.createRange(); r.selectNodeContents($("roomLink")); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); $("copyLink").textContent = "Agora copia (Ctrl+C)"; }
